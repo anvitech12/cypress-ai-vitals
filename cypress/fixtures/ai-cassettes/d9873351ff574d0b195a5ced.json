@@ -1,0 +1,21 @@
+{
+  "key": "d9873351ff574d0b195a5ced",
+  "model": "gemini-3.5-flash-lite",
+  "preset": "gemini",
+  "task": "text",
+  "prompt": "Rubric: Says that the capital of the USA is Washington, D.C.\n\nResponse to evaluate:\n<<<\nNew York is the capital of the United States.\n>>>",
+  "responses": [
+    {
+      "text": "{\"score\": 1, \"reason\": \"The response incorrectly states that New York is the capital of the USA.\"}",
+      "finishReason": "STOP",
+      "usage": {
+        "inputTokens": 111,
+        "outputTokens": 25,
+        "reasoningTokens": 0,
+        "totalTokens": 136
+      },
+      "latencyMs": 601.171542,
+      "servedModel": "gemini-3.5-flash-lite"
+    }
+  ]
+}

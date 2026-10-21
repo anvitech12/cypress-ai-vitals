@@ -1,0 +1,5 @@
+{
+  "palette": [{ "hex": "#fd8b05", "minCoverage": 0.03 }],
+  "tolerance": 14,
+  "forbidden": [{ "hex": "#1e3a8a", "maxCoverage": 0.15 }]
+}

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Test chat app</title>
+</head>
+<body>
+  <!-- A tiny chat app for the plugin's own tests. It posts the question to /api/chat (stubbed by cy.intercept)
+       and types the answer out word by word, the way a streaming reply arrives. -->
+  <textarea data-cy="question" aria-label="Question"></textarea>
+  <button data-cy="ask">Ask</button>
+  <p data-cy="answer"></p>
+  <img data-cy="mascot" src="../fixtures/images/on-brand-1.jpg" alt="Mascot" width="256">
+  <img data-cy="photo" src="../fixtures/images/off-brand-1.jpg" alt="Photo" width="256">
+  <audio data-cy="speech" src="../fixtures/audio/order-ships.wav" controls></audio>
+  <script>
+    document.querySelector('[data-cy=ask]').addEventListener('click', async () => {
+      const question = document.querySelector('[data-cy=question]').value;
+      const res = await fetch('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question }) });
+      const { text } = await res.json();
+      const answer = document.querySelector('[data-cy=answer]');
+      answer.textContent = '';
+      for (const word of text.split(' ')) {
+        answer.textContent += (answer.textContent ? ' ' : '') + word;
+        await new Promise((resolve) => setTimeout(resolve, 120));
+      }
+    });
+  </script>
+</body>
+</html>

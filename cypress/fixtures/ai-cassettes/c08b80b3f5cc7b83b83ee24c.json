@@ -1,0 +1,21 @@
+{
+  "key": "c08b80b3f5cc7b83b83ee24c",
+  "model": "gemini-3.5-flash-lite",
+  "preset": "gemini",
+  "task": "text",
+  "prompt": "What is the capital of the USA? Answer in one sentence.",
+  "responses": [
+    {
+      "text": "The capital of the USA is Washington, D.C.",
+      "finishReason": "STOP",
+      "usage": {
+        "inputTokens": 17,
+        "outputTokens": 12,
+        "reasoningTokens": 0,
+        "totalTokens": 29
+      },
+      "latencyMs": 509.767417,
+      "servedModel": "gemini-3.5-flash-lite"
+    }
+  ]
+}

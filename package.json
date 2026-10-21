@@ -1,0 +1,130 @@
+{
+  "name": "cypress-ai-vitals",
+  "version": "0.1.0",
+  "description": "AI quality vitals for Cypress: semantic, grounding, image and audio assertions, latency/token/cost vitals, and model comparison leaderboards.",
+  "homepage": "https://github.com/anvitech12/cypress-ai-vitals#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anvitech12/cypress-ai-vitals.git"
+  },
+  "bugs": {
+    "url": "https://github.com/anvitech12/cypress-ai-vitals/issues"
+  },
+  "keywords": [
+    "cypress",
+    "cypress-plugin",
+    "llm",
+    "ai",
+    "ai-testing",
+    "llm-testing",
+    "evals",
+    "multimodal",
+    "semantic-assertions",
+    "text-to-speech",
+    "speech-to-text",
+    "image-generation",
+    "cloudflare-workers-ai",
+    "openai",
+    "gemini",
+    "anthropic"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/support/index.cjs",
+  "types": "./dist/support/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/support/index.d.ts",
+        "default": "./dist/support/index.js"
+      },
+      "require": {
+        "types": "./dist/support/index.d.cts",
+        "default": "./dist/support/index.cjs"
+      }
+    },
+    "./plugin": {
+      "import": {
+        "types": "./dist/plugin/index.d.ts",
+        "default": "./dist/plugin/index.js"
+      },
+      "require": {
+        "types": "./dist/plugin/index.d.cts",
+        "default": "./dist/plugin/index.cjs"
+      }
+    },
+    "./providers": {
+      "import": {
+        "types": "./dist/providers/index.d.ts",
+        "default": "./dist/providers/index.js"
+      },
+      "require": {
+        "types": "./dist/providers/index.d.cts",
+        "default": "./dist/providers/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "plugin": [
+        "./dist/plugin/index.d.ts"
+      ],
+      "providers": [
+        "./dist/providers/index.d.ts"
+      ]
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "pack:local": "npm run build && npm pack",
+    "test:ml": "AI_VITALS_ML_TESTS=1 vitest run",
+    "docs:preview": "node scripts/build-readme-preview.mjs --no-badges",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build",
+    "test:e2e": "npm run build && cypress run --browser chrome",
+    "test:e2e:record": "npm run build && AI_MODE=record cypress run --browser chrome --spec cypress/e2e/models.cy.ts"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.3.0"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": ">=0.131.0",
+    "cypress": ">=16.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "0.131.0",
+    "@types/node": "24.19.1",
+    "cypress": "16.1.1",
+    "marked": "18.0.14",
+    "tsup": "8.5.1",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "vitest": "5.0.3"
+  },
+  "author": {
+    "name": "Anvesh Puli",
+    "url": "https://www.linkedin.com/in/anveshpuli/"
+  },
+  "bin": {
+    "cypress-ai-vitals": "./dist/cli.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

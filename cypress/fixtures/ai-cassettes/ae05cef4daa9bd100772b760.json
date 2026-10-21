@@ -1,0 +1,22 @@
+{
+  "key": "ae05cef4daa9bd100772b760",
+  "model": "openai/gpt-oss-20b",
+  "preset": "groq",
+  "task": "text",
+  "prompt": "What is the capital of the USA? Answer in one sentence.",
+  "responses": [
+    {
+      "text": "The capital of the USA is Washington, D.C.",
+      "finishReason": "stop",
+      "usage": {
+        "inputTokens": 84,
+        "outputTokens": 56,
+        "reasoningTokens": 36,
+        "totalTokens": 140
+      },
+      "latencyMs": 575.272667,
+      "serverLatencyMs": 65.30208499999999,
+      "servedModel": "openai/gpt-oss-20b"
+    }
+  ]
+}

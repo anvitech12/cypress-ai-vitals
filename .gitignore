@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.tgz
+.cache/
+coverage/
+.cache/
+docs/readme-preview.html
+cypress/ai-vitals/
+cypress/videos/
+cypress/screenshots/
+cypress/downloads/
+ai.env
+.env
+.env.*

@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+        env:
+          CYPRESS_INSTALL_BINARY: 0
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm pack --dry-run
+
+  cypress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - uses: actions/cache@v4
+        with:
+          path: .cache/ai-vitals-models
+          key: ai-vitals-models-${{ hashFiles('src/plugin/ml.ts') }}
+      - run: npm ci
+      - run: npm run build
+      - run: npx tsc -p cypress/tsconfig.json --noEmit
+      - run: node dist/cli.js warm
+      - run: npx cypress run --browser chrome
+        env:
+          AI_MODE: replay
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-vitals-report
+          path: |
+            cypress/ai-vitals/
+            cypress/screenshots/
+          if-no-files-found: ignore
