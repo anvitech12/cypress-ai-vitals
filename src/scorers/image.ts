@@ -20,7 +20,7 @@ async function sharpLib() {
   try {
     return (await import('sharp')).default;
   } catch {
-    throw new Error('Image checks need sharp, which comes with @huggingface/transformers: npm i -D @huggingface/transformers');
+    throw new Error('Image checks need sharp, which did not load: npm i -D sharp');
   }
 }
 

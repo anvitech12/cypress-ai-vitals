@@ -5,7 +5,7 @@ import { formatMs, formatTokens } from './shared/format';
 import type { ResultRecord } from './shared/types';
 import { generate, ProviderError, withRetry } from './providers';
 import type { GenerateRequest } from './providers/types';
-import { loadAiEnv, mask } from './plugin/env';
+import { loadAiEnv, mask, unreadEnvHint } from './plugin/env';
 import { audioDurationSec, pcm16ToWav } from './plugin/media';
 import { configureMl, warmAll } from './plugin/ml';
 import { buildRegistry, type ModelConfig } from './plugin/registry';
@@ -127,6 +127,8 @@ async function main(): Promise<void> {
 
   if (command === 'models') {
     const env = loadAiEnv(cwd, values.env);
+    const envHint = unreadEnvHint(cwd, values.env);
+    if (envHint) console.log(envHint);
     const registry = buildRegistry(env);
     if (!registry.size) {
       console.log('No models found. Add lines like AI_MODEL_FAST=groq:openai/gpt-oss-20b to ai.env.');

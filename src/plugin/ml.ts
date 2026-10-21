@@ -32,8 +32,9 @@ async function transformers(): Promise<typeof Transformers> {
     })
     .catch((err: unknown) => {
       lib = undefined;
-      if ((err as NodeJS.ErrnoException)?.code === 'ERR_MODULE_NOT_FOUND') {
-        throw new Error('Local AI scoring needs transformers.js: npm i -D @huggingface/transformers');
+      const { code, message } = (err ?? {}) as NodeJS.ErrnoException;
+      if ((code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND') && String(message).includes('@huggingface/transformers')) {
+        throw new Error('This check runs a local model, which needs @huggingface/transformers: npm i -D @huggingface/transformers');
       }
       throw err;
     });

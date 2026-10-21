@@ -1,6 +1,6 @@
 {
   "name": "cypress-ai-vitals",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "AI quality vitals for Cypress: semantic, grounding, image and audio assertions, latency/token/cost vitals, and model comparison leaderboards.",
   "homepage": "https://github.com/anvitech12/cypress-ai-vitals#readme",
   "repository": {
@@ -97,20 +97,24 @@
     "smoke:pack": "bash scripts/pack-smoke.sh"
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.3.0",
     "sharp": "^0.35.4"
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": ">=0.131.0",
+    "@huggingface/transformers": "^4.3.0",
     "cypress": ">=16.0.0"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {
       "optional": true
+    },
+    "@huggingface/transformers": {
+      "optional": true
     }
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "0.131.0",
+    "@huggingface/transformers": "^4.3.0",
     "@types/node": "24.19.1",
     "cypress": "16.1.1",
     "marked": "18.0.14",

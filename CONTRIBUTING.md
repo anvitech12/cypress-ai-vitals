@@ -52,3 +52,9 @@ npm i -D /path/to/cypress-ai-vitals-0.1.0.tgz
 - Add or update a test in `test/` for every behaviour change. Tests must not call real providers; stub `fetch` instead.
 - Keep the README in step with the change.
 - Never commit keys. Put them in `ai.env` or in environment variables. `ai.env` is gitignored.
+
+## Releasing
+
+1. Update `version` in `package.json` and add the changes to `CHANGELOG.md`.
+2. Push to `main` and wait for CI.
+3. Publish a GitHub release whose tag is `v` plus the version, such as `v0.2.0`. The Release workflow publishes it to npm with provenance, through npm trusted publishing, so no npm token is stored anywhere.

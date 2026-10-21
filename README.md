@@ -21,10 +21,12 @@ Want to try it first? Clone the [demo app and its tests](#try-the-demo).
 ### 1. Install
 
 ```bash
-npm i -D cypress-ai-vitals
+npm i -D cypress-ai-vitals @huggingface/transformers
 ```
 
-Needs Cypress 16+ and Node 22+. That one package includes everything, including a local AI runtime that runs the meaning, grounding, image and speech checks on your machine at no cost per call. It adds about 470 MB to `node_modules`, and the models themselves (about 330 MB) download the first time a check uses them.
+Needs Cypress 16+ and Node 22+. `@huggingface/transformers` is the local AI runtime: it runs `means`, `groundedIn`, the CLIP image checks (`depicts`, `notDepicts`, `styleLike`) and local speech transcription on your machine, at no cost per call. It adds about 470 MB to `node_modules`, and its models (about 330 MB) download the first time a check uses them.
+
+It is optional. Without it, everything else works: `aiVitals`, `mustMention`, `exactAnswer`, `maxWer`, `jsonSchema`, `regex`, `refusal`, the guardrails, `palette`, `dimensions`, `judge`, `aiGenerate` and `aiCompare` with those scorers. A check that needs it fails with the command to install it. Behind a firewall, see [Restricted networks](#restricted-networks).
 
 ### 2. Add the plugin to your Cypress project
 
@@ -52,6 +54,8 @@ export default defineConfig({
 });
 ```
 
+`aiVitalsPlugin` registers an `after:spec` handler for its terminal summary and spec reports. Cypress keeps only one handler per event, so it replaces an `after:spec` you registered before it, and yours replaces it if you register yours after. If you have your own, see [Your own after:spec](#your-own-afterspec).
+
 Then add these to `.gitignore`. The plugin keeps its downloaded models (about 330 MB) and its results and reports in them:
 
 ```gitignore
@@ -64,7 +68,7 @@ cypress/ai-vitals/
 
 The meaning, grounding, image and speech checks run locally and need no key, so you can skip this step and go straight to step 4. Keys are needed for `judge`, `aiGenerate`, `aiCompare` and the speech engines of model providers.
 
-Create a file called `ai.env` next to `cypress.config.ts`. It holds two kinds of lines:
+Create a file called `ai.env` next to `cypress.config.ts`. The plugin reads only this file and real environment variables, never your app's `.env`, unless you name it in `envFile`. The file holds two kinds of lines:
 
 - **Keys:** one per provider, for example `GROQ_API_KEY=...`.
 - **Models:** one per model you want to test, written `AI_MODEL_<NAME>=<provider>:<model id>`. Your tests use `<NAME>` in lower case.
@@ -377,6 +381,15 @@ Recordings go to `cypress/fixtures/ai-cassettes`; commit them. A typical CI job:
 - run: npx cypress-ai-vitals report
 ```
 
+## Restricted networks
+
+The local AI runtime reaches two hosts that company networks often block:
+
+- **At install:** on Linux and Windows x64, `onnxruntime-node` (part of `@huggingface/transformers`) downloads GPU files from `api.nuget.org`. The plugin runs on the CPU and does not need them. Skip them with `ONNXRUNTIME_NODE_INSTALL=skip npm ci` (older versions use `ONNXRUNTIME_NODE_INSTALL_CUDA=skip`).
+- **At run time:** the scoring models (about 330 MB) download from `huggingface.co` the first time a check needs them. On a machine that can reach it, run `npx cypress-ai-vitals warm`, then copy `.cache/ai-vitals-models` (or your `modelCacheDir`) to the blocked machine, or keep it in your CI cache. Set `offline: true` or `AI_VITALS_OFFLINE=1` so a missing model fails at once instead of trying to download.
+
+Without `@huggingface/transformers`, the plugin reaches only the model providers you name in `ai.env`.
+
 ## CLI
 
 ```
@@ -394,7 +407,7 @@ npx cypress-ai-vitals --version         # print the installed version
 | Option | Default |
 |---|---|
 | `models` | none (merged over `ai.env`) |
-| `envFile` | `ai.env`, then `.env` |
+| `envFile` | `ai.env` only. Name other files to read them too, for example `['ai.env', '.env']` |
 | `mode` | `AI_MODE`, then `live` |
 | `judge` | `AI_JUDGE` |
 | `stt` | `AI_STT`, then `local` |
@@ -404,13 +417,31 @@ npx cypress-ai-vitals --version         # print the installed version
 | `modelCacheDir` | `.cache/ai-vitals-models` |
 | `offline` | `AI_VITALS_OFFLINE=1`: fail instead of downloading models |
 | `terminalSummary` | `true` |
+| `registerAfterSpec` | `true`. Set `false` to call `aiVitalsAfterSpec` from your own handler |
+| `redact` | none: extra values to hide, of any length |
 
-The plugin uses Cypress's `after:spec` event. If you have your own `after:spec`, set `terminalSummary: false` and `specReports: false`, and run `npx cypress-ai-vitals report` instead.
+### Your own after:spec
+
+The plugin's `after:spec` handler **replaces** any `after:spec` handler registered before it, because Cypress keeps only one per event. If you have your own, turn the plugin's off and call it from yours:
+
+```ts
+// cypress.config.ts
+import { aiVitalsAfterSpec, aiVitalsPlugin } from 'cypress-ai-vitals/plugin';
+
+setupNodeEvents(on, config) {
+  on('after:spec', async (spec, results) => {
+    await myAfterSpec(spec, results);
+    aiVitalsAfterSpec(spec, results);
+  });
+  return aiVitalsPlugin(on, config, { registerAfterSpec: false });
+},
+```
 
 ## Security
 
-- Keys are read only in Node, from `ai.env` or environment variables, and never sent to the browser.
-- Any value whose name ends in `KEY`, `TOKEN`, `SECRET`, `PASSWORD` or `ACCOUNT_ID` is replaced with `[redacted]` in results, reports, recordings and error messages.
+- Keys are read only in Node, from `ai.env` (or the files in `envFile`) and environment variables, and never sent to the browser.
+- Any value of 8 characters or more whose name ends in `KEY`, `TOKEN`, `SECRET`, `PASSWORD` or `ACCOUNT_ID` is replaced with `[redacted]` in results, reports, recordings and error messages. So are a user and password in a URL, such as `postgres://user:password@host`. Hide other values, of any length, with the `redact` option.
+- Releases are published from GitHub Actions with [npm provenance](https://docs.npmjs.com/generating-provenance-statements), so you can check that each version was built from this repository: `npm audit signatures`.
 - Recordings store the model name, the prompt and the answer, never URLs or headers.
 - Found a security problem? See [SECURITY.md](SECURITY.md).
 

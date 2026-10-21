@@ -21,8 +21,11 @@ export function redactDeep<T>(value: T, redact: (text: string) => string): T {
   return value;
 }
 
-/** Returns a function that replaces every known secret in a string with [redacted]. */
+/** user:password@ in a URL such as postgres://user:password@host/db. */
+const URL_CREDENTIALS = /\b([a-z][a-z0-9+.-]*:\/\/)[^\s/@:]+:[^\s/@]+@/gi;
+
+/** Returns a function that replaces every known secret, and any user:password in a URL, with [redacted]. */
 export function makeRedactor(values: string[]): (text: string) => string {
-  if (!values.length) return (text) => text;
-  return (text) => values.reduce((out, secret) => out.split(secret).join('[redacted]'), text);
+  const secrets = [...new Set(values.filter(Boolean))].sort((a, b) => b.length - a.length);
+  return (text) => secrets.reduce((out, secret) => out.split(secret).join('[redacted]'), text).replace(URL_CREDENTIALS, '$1[redacted]@');
 }

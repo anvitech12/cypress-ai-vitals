@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0 (2026-10-21)
+
+Changes from the Cypress team's review of the plugins-list entry.
+
+**Breaking:**
+
+- **`.env` is no longer read by default.** The plugin reads `ai.env` and real environment variables only, so it never picks up your app's keys from `.env` by accident. To read `.env`, name it: `envFile: '.env'` or `envFile: ['ai.env', '.env']`. If `.env` still holds `AI_*` settings, the plugin and `models` say so.
+- **`@huggingface/transformers` is now an optional peer dependency.** Install it for `means`, `groundedIn`, the CLIP image checks and local speech transcription: `npm i -D @huggingface/transformers`. Without it, the install is about 470 MB smaller and every other check works; a check that needs it names the package to install.
+
+**Added:**
+
+- **`aiVitalsAfterSpec(spec, results)`** and the `registerAfterSpec: false` option, for projects with their own `after:spec` handler. The README now says plainly that the plugin's handler replaces one registered before it.
+- **`redact` option** for extra values to hide, of any length. A user and password in a URL (`postgres://user:password@host`) are now redacted too.
+- **Releases are published from GitHub Actions with npm provenance** (trusted publishing), so each version can be checked against this repository with `npm audit signatures`.
+- README sections for **restricted networks** (the `api.nuget.org` download at install and the `huggingface.co` model download) and **your own after:spec**.
+
 ## 0.1.1 (2026-10-21)
 
 - **Open report from the panel.** In `cypress open`, a **Report** button opens the spec's full HTML report in a new tab. In `cypress run`, the panel shows the report's file path.

@@ -22,7 +22,7 @@ import { scoreImage } from '../scorers/image';
 import { scoreText } from '../scorers/text';
 import { withCassette, type CassetteMode } from './cassette';
 import { computeCost } from './cost';
-import { loadAiEnv, mask } from './env';
+import { loadAiEnv, mask, unreadEnvHint } from './env';
 import { audioDurationSec, loadMedia } from './media';
 import { makeRedactor, redactDeep, secretValues } from './redact';
 import { configureMl, warmAll } from './ml';
@@ -37,8 +37,8 @@ import { VERSION } from '../version';
 export interface AiVitalsOptions {
   /** Models defined in code. Merged over the AI_MODEL_* entries from ai.env. */
   models?: Record<string, ModelDefinition>;
-  /** Env file to read instead of ai.env / .env. */
-  envFile?: string;
+  /** Env file(s) to read instead of ai.env. Your app's .env is read only if you name it here. */
+  envFile?: string | string[];
   /** live | record | replay. Defaults to AI_MODE, then live. */
   mode?: CassetteMode;
   /** Where recordings live. Defaults to <fixturesFolder>/ai-cassettes. */
@@ -61,6 +61,13 @@ export interface AiVitalsOptions {
   reportsDir?: string;
   /** Reports kept per spec; older ones are deleted. Defaults to 10. */
   keepReports?: number;
+  /**
+   * Register the plugin's after:spec handler. Defaults to true. Cypress keeps only one after:spec handler, so set false
+   * when you have your own, and call aiVitalsAfterSpec(spec, results) from it.
+   */
+  registerAfterSpec?: boolean;
+  /** Extra values to redact from results, reports, recordings and error messages, such as a short key. */
+  redact?: string[];
 }
 
 /** Name of the check added when an assertion ran nothing. */
@@ -124,6 +131,14 @@ async function loadDataset(file: string): Promise<CompareCase[]> {
   return JSON.parse(raw) as CompareCase[];
 }
 
+let afterSpecHandler: ((spec: Cypress.Spec, results?: CypressCommandLine.RunResult) => void) | undefined;
+
+/** The plugin's after:spec work (terminal summary and spec report), for your own after:spec handler. */
+export function aiVitalsAfterSpec(spec: Cypress.Spec, results?: CypressCommandLine.RunResult): void {
+  if (!afterSpecHandler) throw new Error('aiVitalsAfterSpec needs aiVitalsPlugin(on, config) to run first in setupNodeEvents.');
+  afterSpecHandler(spec, results);
+}
+
 export function aiVitalsPlugin(
   on: Cypress.PluginEvents,
   config: Cypress.PluginConfigOptions,
@@ -132,6 +147,8 @@ export function aiVitalsPlugin(
   const projectRoot = config.projectRoot;
   const fixturesFolder = config.fixturesFolder || path.join(projectRoot, 'cypress/fixtures');
   const env = loadAiEnv(projectRoot, options.envFile);
+  const envHint = unreadEnvHint(projectRoot, options.envFile);
+  if (envHint) console.log(`  [ai-vitals] ${envHint}`);
   const registry = buildRegistry(env, options.models);
   const mode = (options.mode ?? (env.AI_MODE as CassetteMode | undefined) ?? 'live') as CassetteMode;
   if (!['live', 'record', 'replay'].includes(mode)) throw new Error(`AI_MODE must be live, record or replay (got "${mode}").`);
@@ -140,7 +157,7 @@ export function aiVitalsPlugin(
   // One folder per run; CI shards share AI_VITALS_RUN_ID so `report` can merge them.
   const runId = env.AI_VITALS_RUN_ID ?? new Date().toISOString().replace(/[:.]/g, '-');
   // Keys and account ids from ai.env never reach results, reports, recordings or the Command Log.
-  const redact = makeRedactor(secretValues(env, registry.values()));
+  const redact = makeRedactor([...secretValues(env, registry.values()), ...(options.redact ?? [])]);
   const store = new ResultStore(path.join(options.resultsDir ?? path.join(projectRoot, 'cypress/ai-vitals/results'), runId), redact);
   const reportsDir = options.reportsDir ?? path.join(projectRoot, 'cypress/ai-vitals/reports');
   configureMl({
@@ -379,30 +396,30 @@ export function aiVitalsPlugin(
     },
   });
 
-  if (options.terminalSummary !== false || options.specReports !== false) {
-    on('after:spec', (spec, results) => {
-      const records = store.forSpec(spec.relative);
-      if (options.terminalSummary !== false) {
-        const summary = specSummary(spec.relative, records);
-        if (summary) console.log(summary);
-      }
-      if (options.specReports !== false) {
-        const stats = (results as CypressCommandLine.RunResult | undefined)?.stats;
-        const file = writeSpecReport(
-          reportsDir,
-          {
-            spec: spec.relative,
-            tests: stats ? { total: stats.tests, passed: stats.passes, failed: stats.failures, pending: stats.pending, durationMs: stats.duration } : undefined,
-            video: (results as CypressCommandLine.RunResult | undefined)?.video ?? null,
-            screenshots: (results as CypressCommandLine.RunResult | undefined)?.screenshots?.map((s) => s.path) ?? [],
-          },
-          records,
-          options.keepReports ?? 10,
-        );
-        console.log(`  [ai-vitals] report: ${path.relative(projectRoot, file)}`);
-      }
-    });
-  }
+  const afterSpec = (spec: Cypress.Spec, results?: CypressCommandLine.RunResult) => {
+    const records = store.forSpec(spec.relative);
+    if (options.terminalSummary !== false) {
+      const summary = specSummary(spec.relative, records);
+      if (summary) console.log(summary);
+    }
+    if (options.specReports !== false) {
+      const stats = results?.stats;
+      const file = writeSpecReport(
+        reportsDir,
+        {
+          spec: spec.relative,
+          tests: stats ? { total: stats.tests, passed: stats.passes, failed: stats.failures, pending: stats.pending, durationMs: stats.duration } : undefined,
+          video: results?.video ?? null,
+          screenshots: results?.screenshots?.map((s) => s.path) ?? [],
+        },
+        records,
+        options.keepReports ?? 10,
+      );
+      console.log(`  [ai-vitals] report: ${path.relative(projectRoot, file)}`);
+    }
+  };
+  afterSpecHandler = afterSpec;
+  if (options.registerAfterSpec !== false && (options.terminalSummary !== false || options.specReports !== false)) on('after:spec', afterSpec);
 
   // Lets the support file tell a missing aiVitalsPlugin apart from other task errors.
   config.expose = { ...(config.expose ?? {}), aiVitalsPlugin: VERSION };
