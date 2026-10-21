@@ -34,7 +34,10 @@ async function transformers(): Promise<typeof Transformers> {
       lib = undefined;
       const { code, message } = (err ?? {}) as NodeJS.ErrnoException;
       if ((code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND') && String(message).includes('@huggingface/transformers')) {
-        throw new Error('This check runs a local model, which needs @huggingface/transformers: npm i -D @huggingface/transformers');
+        throw new Error(
+          'This check runs a local model, which needs @huggingface/transformers. It installs with cypress-ai-vitals, but its install is skipped if it fails, ' +
+            'for example on a network that blocks api.nuget.org. Install it with: ONNXRUNTIME_NODE_INSTALL=skip npm i -D @huggingface/transformers',
+        );
       }
       throw err;
     });

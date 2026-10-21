@@ -21,12 +21,12 @@ Want to try it first? Clone the [demo app and its tests](#try-the-demo).
 ### 1. Install
 
 ```bash
-npm i -D cypress-ai-vitals @huggingface/transformers
+npm i -D cypress-ai-vitals
 ```
 
-Needs Cypress 16+ and Node 22+. `@huggingface/transformers` is the local AI runtime: it runs `means`, `groundedIn`, the CLIP image checks (`depicts`, `notDepicts`, `styleLike`) and local speech transcription on your machine, at no cost per call. It adds about 470 MB to `node_modules`, and its models (about 330 MB) download the first time a check uses them.
+Needs Cypress 16+ and Node 22+. The install includes a local AI runtime, `@huggingface/transformers`, that runs `means`, `groundedIn`, the CLIP image checks (`depicts`, `notDepicts`, `styleLike`) and local speech transcription on your machine, at no cost per call. It adds about 470 MB to `node_modules`, and its models (about 330 MB) download the first time a check uses them.
 
-It is optional. Without it, everything else works: `aiVitals`, `mustMention`, `exactAnswer`, `maxWer`, `jsonSchema`, `regex`, `refusal`, the guardrails, `palette`, `dimensions`, `judge`, `aiGenerate` and `aiCompare` with those scorers. A check that needs it fails with the command to install it. Behind a firewall, see [Restricted networks](#restricted-networks).
+The runtime is an optional dependency. If its install fails, for example on a network that blocks `api.nuget.org`, the plugin still installs and every other check works: `aiVitals`, `mustMention`, `exactAnswer`, `maxWer`, `jsonSchema`, `regex`, `refusal`, the guardrails, `palette`, `dimensions`, `judge` and `aiGenerate`. A check that needs the runtime then says how to install it. See [Restricted networks](#restricted-networks).
 
 ### 2. Add the plugin to your Cypress project
 
@@ -385,10 +385,10 @@ Recordings go to `cypress/fixtures/ai-cassettes`; commit them. A typical CI job:
 
 The local AI runtime reaches two hosts that company networks often block:
 
-- **At install:** on Linux and Windows x64, `onnxruntime-node` (part of `@huggingface/transformers`) downloads GPU files from `api.nuget.org`. The plugin runs on the CPU and does not need them. Skip them with `ONNXRUNTIME_NODE_INSTALL=skip npm ci` (older versions use `ONNXRUNTIME_NODE_INSTALL_CUDA=skip`).
+- **At install:** on Linux and Windows x64, `onnxruntime-node` (part of `@huggingface/transformers`) downloads GPU files from `api.nuget.org`. The plugin runs on the CPU and does not need them. If the download is blocked, the plugin still installs, but without the local AI runtime. To keep the runtime, skip the GPU files: `ONNXRUNTIME_NODE_INSTALL=skip npm ci` (older versions use `ONNXRUNTIME_NODE_INSTALL_CUDA=skip`).
 - **At run time:** the scoring models (about 330 MB) download from `huggingface.co` the first time a check needs them. On a machine that can reach it, run `npx cypress-ai-vitals warm`, then copy `.cache/ai-vitals-models` (or your `modelCacheDir`) to the blocked machine, or keep it in your CI cache. Set `offline: true` or `AI_VITALS_OFFLINE=1` so a missing model fails at once instead of trying to download.
 
-Without `@huggingface/transformers`, the plugin reaches only the model providers you name in `ai.env`.
+Without the local AI runtime, the plugin reaches only the model providers you name in `ai.env`.
 
 ## CLI
 

@@ -7,7 +7,10 @@ Changes from the Cypress team's review of the plugins-list entry.
 **Breaking:**
 
 - **`.env` is no longer read by default.** The plugin reads `ai.env` and real environment variables only, so it never picks up your app's keys from `.env` by accident. To read `.env`, name it: `envFile: '.env'` or `envFile: ['ai.env', '.env']`. If `.env` still holds `AI_*` settings, the plugin and `models` say so.
-- **`@huggingface/transformers` is now an optional peer dependency.** Install it for `means`, `groundedIn`, the CLIP image checks and local speech transcription: `npm i -D @huggingface/transformers`. Without it, the install is about 470 MB smaller and every other check works; a check that needs it names the package to install.
+
+**Changed:**
+
+- **The local AI runtime, `@huggingface/transformers`, is now an optional dependency.** It still installs with `npm i -D cypress-ai-vitals`. If its install fails, for example on a network that blocks `api.nuget.org`, the plugin's install no longer fails: every other check works, and a check that needs the runtime says how to install it.
 
 **Added:**
 

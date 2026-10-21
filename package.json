@@ -99,22 +99,20 @@
   "dependencies": {
     "sharp": "^0.35.4"
   },
+  "optionalDependencies": {
+    "@huggingface/transformers": "^4.3.0"
+  },
   "peerDependencies": {
     "@anthropic-ai/sdk": ">=0.131.0",
-    "@huggingface/transformers": "^4.3.0",
     "cypress": ">=16.0.0"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {
       "optional": true
-    },
-    "@huggingface/transformers": {
-      "optional": true
     }
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "0.131.0",
-    "@huggingface/transformers": "^4.3.0",
     "@types/node": "24.19.1",
     "cypress": "16.1.1",
     "marked": "18.0.14",

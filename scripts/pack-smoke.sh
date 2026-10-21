@@ -8,7 +8,11 @@ cd "$ROOT"
 TARBALL="$(npm pack --silent --pack-destination "$WORK" | tail -1)"
 cd "$WORK"
 npm init -y >/dev/null
-CYPRESS_INSTALL_BINARY=0 npm install --no-audit --no-fund --silent "./$TARBALL" cypress@16 typescript@5 >/dev/null
+CYPRESS_INSTALL_BINARY=0 ONNXRUNTIME_NODE_INSTALL=skip npm install --no-audit --no-fund --silent "./$TARBALL" cypress@16 typescript@5 >/dev/null
+node --input-type=module -e "await import('@huggingface/transformers')"
+echo "The local AI runtime installs with the plugin"
+# Simulate an install where the optional runtime was skipped, as on a network that blocks api.nuget.org.
+mv node_modules/@huggingface/transformers transformers.skipped
 node -e "require('cypress-ai-vitals/plugin'); require('cypress-ai-vitals/providers'); console.log('CommonJS entry points load')"
 node --input-type=module -e "await import('cypress-ai-vitals/plugin'); await import('cypress-ai-vitals/providers'); console.log('ES module entry points load')"
 for ext in cjs mjs; do
@@ -26,7 +30,8 @@ JS
   if [ "$ext" = cjs ]; then { echo '(async () => {'; cat optional.cjs; echo '})().catch((err) => { console.error(err); process.exit(1); });'; } > optional.tmp && mv optional.tmp optional.cjs; fi
   node "optional.$ext" >/dev/null
 done
-echo "Without @huggingface/transformers, plain checks run and local-model checks name the package to install"
+echo "Without the runtime, plain checks run and local-model checks say how to install it"
+mv transformers.skipped node_modules/@huggingface/transformers
 test "$(npx cypress-ai-vitals --version)" = "$(node -p "require('cypress-ai-vitals/package.json').version")"
 echo "CLI prints its version"
 cat > check.ts <<'TS'
