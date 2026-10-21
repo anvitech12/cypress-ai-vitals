@@ -19,6 +19,8 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
       - run: npm ci
+      - name: Check npm would not rewrite package.json
+        run: npm pkg fix && git diff --exit-code package.json
       - name: Check the tag matches package.json
         run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
       - run: npm run typecheck

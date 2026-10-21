@@ -126,7 +126,7 @@
     "url": "https://www.linkedin.com/in/anveshpuli/"
   },
   "bin": {
-    "cypress-ai-vitals": "./dist/cli.js"
+    "cypress-ai-vitals": "dist/cli.js"
   },
   "publishConfig": {
     "access": "public"

@@ -24,6 +24,8 @@ jobs:
       - run: npm ci
         env:
           CYPRESS_INSTALL_BINARY: 0
+      - name: Check npm would not rewrite package.json
+        run: npm pkg fix && git diff --exit-code package.json
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
