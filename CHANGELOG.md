@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.1 (2026-10-21)
+
+- **Open report from the panel.** In `cypress open`, a **Report** button opens the spec's full HTML report in a new tab. In `cypress run`, the panel shows the report's file path.
+- **Same-site images and audio load in the browser**, so your app's cookies and `cy.intercept` stubs apply. Media on other sites is still loaded by Node.
+- **Rate limits:** waits written in minutes ("try again in 1m2s") and the `Retry-After` header are read correctly, so long waits fail fast with the reason instead of retrying too soon.
+- **Chinese, Japanese and Thai** speech is scored by character, so one wrong character no longer counts as a whole wrong sentence.
+- **no-prompt-leak** no longer flags a polite refusal that mentions "my system prompt"; it looks for disclosed instructions and the canary.
+- **Clearer messages:** a missing `aiVitalsPlugin` in `cypress.config` is named in the Command Log, and a broken dataset row names its file and line.
+- **CLI:** `--version`; `models --ping` exits 1 when no models are configured; `report --run` with an unknown id fails and lists the runs; a cut-off results line is skipped with a warning.
+- **Reports:** numbering past report-999 keeps the newest reports, a spec outside the project keeps its report inside the reports folder, and the panel and the reports compute p95 the same way.
+- **Settings:** `AI_MODEL_<NAME>_VOICE=openai:...` style names are models, not settings of another model.
+- `sharp` is a direct dependency, so image checks work with pnpm; `aiCompare` shows n/a for a model with nothing scored.
+- CI installs the packed package into a fresh project and checks its entry points, types and CLI.
+
 ## 0.1.0 (2026-10-20)
 
 First release.

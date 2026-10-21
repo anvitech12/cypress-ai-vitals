@@ -40,10 +40,22 @@ export class ProviderError extends Error {
     message: string,
     readonly status?: number,
     readonly body?: string,
+    /** How long the provider asked us to wait, from its Retry-After header. */
+    readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = 'ProviderError';
   }
+}
+
+/** Reads a Retry-After header: either seconds, or an HTTP date. */
+export function retryAfterMs(headers: Headers): number | undefined {
+  const value = headers.get('retry-after');
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const at = Date.parse(value);
+  return Number.isNaN(at) ? undefined : Math.max(0, at - Date.now());
 }
 
 export function usage(input: number, output: number, reasoning?: number): Usage {
@@ -85,7 +97,7 @@ async function send(url: string, init: RequestInit): Promise<Response> {
   const res = await fetch(url, init);
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new ProviderError(`${new URL(url).host} returned ${res.status}: ${errorText(body)}`, res.status, body);
+    throw new ProviderError(`${new URL(url).host} returned ${res.status}: ${errorText(body)}`, res.status, body, retryAfterMs(res.headers));
   }
   return res;
 }

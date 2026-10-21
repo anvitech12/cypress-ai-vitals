@@ -1,6 +1,6 @@
 {
   "name": "cypress-ai-vitals",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "AI quality vitals for Cypress: semantic, grounding, image and audio assertions, latency/token/cost vitals, and model comparison leaderboards.",
   "homepage": "https://github.com/anvitech12/cypress-ai-vitals#readme",
   "repository": {
@@ -93,10 +93,12 @@
     "docs:preview": "node scripts/build-readme-preview.mjs --no-badges",
     "prepublishOnly": "npm run typecheck && npm test && npm run build",
     "test:e2e": "npm run build && cypress run --browser chrome",
-    "test:e2e:record": "npm run build && AI_MODE=record cypress run --browser chrome --spec cypress/e2e/models.cy.ts"
+    "test:e2e:record": "npm run build && AI_MODE=record cypress run --browser chrome --spec cypress/e2e/models.cy.ts",
+    "smoke:pack": "bash scripts/pack-smoke.sh"
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.3.0"
+    "@huggingface/transformers": "^4.3.0",
+    "sharp": "^0.35.4"
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": ">=0.131.0",

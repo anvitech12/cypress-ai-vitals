@@ -28,6 +28,7 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm pack --dry-run
+      - run: npm run smoke:pack
 
   cypress:
     runs-on: ubuntu-latest

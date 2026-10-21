@@ -69,7 +69,7 @@ describe.runIf(process.env.AI_VITALS_ML_TESTS === '1')('local model scorers (slo
 
   it('CLIP picks the right caption for a solid red image', async () => {
     const red = await sharp({ create: { width: 224, height: 224, channels: 3, background: '#e53935' } }).png().toBuffer();
-    const checks = await scoreImage(red, 'image/png', { depicts: 'a solid red square', notDepicts: ['a photo of a dog'], brand: { palette: [{ hex: '#e53935', minCoverage: 0.9 }], forbidden: [{ hex: '#1e40af' }] }, dimensions: { width: 224 } }, { ...ctx, generate: noJudge });
+    const checks = await scoreImage(red, 'image/png', { depicts: 'a plain red image', notDepicts: ['a photo of a dog'], brand: { palette: [{ hex: '#e53935', minCoverage: 0.9 }], forbidden: [{ hex: '#1e40af' }] }, dimensions: { width: 224 } }, { ...ctx, generate: noJudge });
     expect(checks.map((c) => [c.name, c.pass])).toEqual([
       ['depicts', true],
       ['notDepicts', true],

@@ -1,5 +1,8 @@
 import type { JsonSchema } from '../shared/types';
 
+/** Chinese, Japanese, Thai and similar scripts do not put spaces between words. */
+const NO_WORD_SPACES = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u;
+
 export function normalizeText(text: string): string {
   return text
     .toLowerCase()
@@ -13,7 +16,10 @@ export function normalizeText(text: string): string {
 
 export function words(text: string): string[] {
   const n = normalizeText(text);
-  return n ? n.split(' ') : [];
+  if (!n) return [];
+  // Scripts without spaces are compared character by character, which makes the error rate a character error rate.
+  if (NO_WORD_SPACES.test(n)) return [...n].filter((ch) => ch.trim());
+  return n.split(' ');
 }
 
 /** Word error rate: (substitutions + deletions + insertions) / reference words. */
@@ -32,13 +38,10 @@ export function wordErrorRate(reference: string, hypothesis: string): number {
   return prev[hyp.length] / ref.length;
 }
 
-const NO_WORD_SPACES = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u;
-
 export function mentions(text: string, fact: string): boolean {
   const needle = normalizeText(fact);
   if (!needle) return false;
   const haystack = normalizeText(text);
-  // Chinese, Japanese, Thai and similar scripts do not put spaces between words.
   if (NO_WORD_SPACES.test(needle)) return haystack.includes(needle);
   return ` ${haystack} `.includes(` ${needle} `);
 }

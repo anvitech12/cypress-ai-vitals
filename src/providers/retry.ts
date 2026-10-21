@@ -9,12 +9,22 @@ const DAILY_LIMIT = /daily (free )?allocation|daily quota|ZeroGPU quota/i;
 /** Waits longer than this are not worth holding a test for; the call fails with the provider's message instead. */
 const MAX_WAIT_MS = 65_000;
 
+/** Parses a wait written like "20s", "1m2.5s", "14m20s", "2h3m" or "500ms" into milliseconds. */
+export function parseWait(text: string): number | undefined {
+  const m = /^(?:(\d+(?:\.\d+)?)h)?(?:(\d+(?:\.\d+)?)m(?!s))?(?:(\d+(?:\.\d+)?)s)?(?:(\d+(?:\.\d+)?)ms)?$/.exec(text.trim());
+  if (!m || !m.slice(1).some(Boolean)) return undefined;
+  const [h, min, s, ms] = m.slice(1).map((v) => Number(v ?? 0));
+  return Math.ceil(h * 3_600_000 + min * 60_000 + s * 1000 + ms);
+}
+
 function delayFor(err: ProviderError, attempt: number): number {
-  const hint =
-    /"retry[-_]after"?\s*[:=]\s*"?(\d+(?:\.\d+)?)/i.exec(err.body ?? '') ??
-    /try again in (\d+(?:\.\d+)?)s/i.exec(err.body ?? '') ??
-    /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/i.exec(err.body ?? '');
-  return hint ? Math.ceil(Number(hint[1]) * 1000) : 1500 * 2 ** attempt;
+  if (err.retryAfterMs !== undefined) return Math.ceil(err.retryAfterMs);
+  const body = err.body ?? '';
+  const seconds = /"retry[-_]after"?\s*[:=]\s*"?(\d+(?:\.\d+)?)/i.exec(body);
+  if (seconds) return Math.ceil(Number(seconds[1]) * 1000);
+  const written = /try again in ((?:\d+(?:\.\d+)?(?:ms|h|m|s))+)/i.exec(body) ?? /"retryDelay"\s*:\s*"([^"]+)"/i.exec(body);
+  const wait = written ? parseWait(written[1]) : undefined;
+  return wait ?? 1500 * 2 ** attempt;
 }
 
 /** Retries rate limits (429) and overloads (5xx) with backoff, honouring the provider's retry hint. */

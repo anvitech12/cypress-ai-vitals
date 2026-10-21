@@ -15,6 +15,8 @@ import { VERSION } from './version';
 const HELP = `cypress-ai-vitals ${VERSION}
 
 Usage:
+  npx cypress-ai-vitals --version
+      Print the installed version.
   npx cypress-ai-vitals report [--results cypress/ai-vitals/results] [--out cypress/ai-vitals/reports] [--run <id> | --all]
       Merge the latest run's JSONL results (every spec and CI shard) into run.html, summary.json and summary.md.
       (Each spec also writes its own report-NNN.html after it runs.)
@@ -61,8 +63,16 @@ function readResults(dir: string): ResultRecord[] {
     .flatMap((f) =>
       readFileSync(path.join(dir, f), 'utf8')
         .split('\n')
-        .filter((l) => l.trim())
-        .map((l) => JSON.parse(l) as ResultRecord),
+        .flatMap((line, i) => {
+          if (!line.trim()) return [];
+          try {
+            return [JSON.parse(line) as ResultRecord];
+          } catch {
+            // A run that was killed mid-write leaves a cut-off last line; skip it rather than lose the whole report.
+            console.warn(`  skipped an unreadable line: ${path.join(dir, f)}:${i + 1}`);
+            return [];
+          }
+        }),
     );
 }
 
@@ -78,10 +88,16 @@ async function main(): Promise<void> {
       run: { type: 'string' },
       all: { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
+      version: { type: 'boolean', short: 'v', default: false },
     },
   });
   const command = positionals[0];
   const cwd = process.cwd();
+
+  if (values.version) {
+    console.log(VERSION);
+    return;
+  }
 
   if (!command || values.help) {
     console.log(HELP);
@@ -91,6 +107,11 @@ async function main(): Promise<void> {
   if (command === 'report') {
     const root = path.resolve(cwd, values.results!);
     const runs = runDirs(root);
+    if (values.run && !runs.includes(values.run)) {
+      console.error(`No run "${values.run}" in ${values.results}. Runs: ${runs.slice(-5).join(', ') || '(none yet)'}`);
+      process.exitCode = 1;
+      return;
+    }
     const picked = values.all ? runs : values.run ? [values.run] : runs.slice(-1);
     const records = [...readResults(root), ...picked.flatMap((r) => readResults(path.join(root, r)))];
     const out = path.resolve(cwd, values.out!);
@@ -109,6 +130,8 @@ async function main(): Promise<void> {
     const registry = buildRegistry(env);
     if (!registry.size) {
       console.log('No models found. Add lines like AI_MODEL_FAST=groq:openai/gpt-oss-20b to ai.env.');
+      // With --ping this is usually a CI step whose keys never arrived, so it must not pass quietly.
+      if (values.ping) process.exitCode = 1;
       return;
     }
     const width = Math.max(...[...registry.keys()].map((n) => n.length));

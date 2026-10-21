@@ -28,7 +28,8 @@ import { makeRedactor, redactDeep, secretValues } from './redact';
 import { configureMl, warmAll } from './ml';
 import { buildRegistry, describeSettings, requireModel, type ModelConfig, type ModelDefinition } from './registry';
 import { leaderboardTable, specSummary } from './report/terminal';
-import { writeSpecReport } from './report/spec-reports';
+import { writeSpecReport, specReportDir } from './report/spec-reports';
+import { startReportServer, type ReportServer } from './report-server';
 import { ResultStore } from './store';
 import { pickWinner, summarizeModel } from './summary';
 import { VERSION } from '../version';
@@ -111,10 +112,14 @@ function vitalsChecks(vitals: Vitals, thresholds: VitalsThresholds = {}): CheckR
 async function loadDataset(file: string): Promise<CompareCase[]> {
   const raw = await readFile(file, 'utf8');
   if (file.endsWith('.jsonl')) {
-    return raw
-      .split('\n')
-      .filter((l) => l.trim())
-      .map((l) => JSON.parse(l) as CompareCase);
+    return raw.split('\n').flatMap((line, i) => {
+      if (!line.trim()) return [];
+      try {
+        return [JSON.parse(line) as CompareCase];
+      } catch (err) {
+        throw new Error(`aiCompare dataset ${file}, line ${i + 1}: ${(err as Error).message}`);
+      }
+    });
   }
   return JSON.parse(raw) as CompareCase[];
 }
@@ -195,6 +200,8 @@ export function aiVitalsPlugin(
     };
   }
 
+  /** Started on first use, in cypress open only, so the panel can open a report in a new tab. */
+  let reportServer: Promise<ReportServer> | undefined;
   const judgeGenerate = (scope: string, run?: string) => (name: string, req: GenerateRequest) => call(requireModel(registry, name), req, `${scope}::judge`, run);
   const scope = (meta: Meta) => `${meta.spec}::${meta.test}`;
   const ctx = { projectRoot, fixturesFolder };
@@ -352,6 +359,20 @@ export function aiVitalsPlugin(
       return [...registry.values()].map((m) => ({ name: m.name, provider: m.preset, model: m.model, key: mask(m.apiKey), baseUrl: m.baseUrl ?? null }));
     },
 
+    /** Where the full report for a spec will be: a link in cypress open, the file path in cypress run. */
+    async 'aiVitals:reportLink'({ spec }: { spec: string }): Promise<{ url: string | null; path: string | null }> {
+      if (options.specReports === false) return { url: null, path: null };
+      const dir = specReportDir(reportsDir, spec);
+      const file = path.relative(projectRoot, path.join(dir, 'latest.html'));
+      if (config.isTextTerminal) return { url: null, path: file };
+      // cypress open only sends after:spec, which writes the report, when experimentalInteractiveRunEvents is on.
+      if (!config.experimentalInteractiveRunEvents) return { url: null, path: null };
+      reportServer ??= startReportServer(reportsDir);
+      const { url } = await reportServer;
+      const folder = path.relative(reportsDir, dir).split(path.sep).join('/');
+      return { url: `${url}/open?spec=${encodeURIComponent(folder)}&since=${Date.now()}`, path: file };
+    },
+
     async 'aiVitals:warm'() {
       await warmAll((msg) => console.log(`  [ai-vitals] ${msg}`));
       return null;
@@ -383,6 +404,8 @@ export function aiVitalsPlugin(
     });
   }
 
+  // Lets the support file tell a missing aiVitalsPlugin apart from other task errors.
+  config.expose = { ...(config.expose ?? {}), aiVitalsPlugin: VERSION };
   console.log(`  [ai-vitals] ${VERSION} · mode ${mode} · ${registry.size} model(s): ${[...registry.keys()].join(', ') || 'none'}`);
   return config;
 }

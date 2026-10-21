@@ -19,9 +19,17 @@ function esc(text: string): string {
 
 /** Folder for one spec's reports: cypress/e2e/text/01-single.cy.ts → <root>/text/01-single.cy.ts */
 export function specReportDir(reportsDir: string, specRelative: string): string {
-  const trimmed = specRelative.replace(/^cypress\/e2e\//, '');
+  // A spec outside the project has a path with .. or a leading /; drop those parts so the folder stays under reportsDir.
+  const trimmed = specRelative
+    .replace(/^cypress\/e2e\//, '')
+    .split(/[\\/]+/)
+    .filter((part) => part && part !== '.' && part !== '..')
+    .join('/');
   return path.join(reportsDir, trimmed);
 }
+
+/** Sorts report-NNN.html names by their number, so report-1000 comes after report-999. */
+const byNumber = (a: string, b: string) => Number(REPORT.exec(a)?.[1]) - Number(REPORT.exec(b)?.[1]);
 
 /**
  * Writes report-NNN.html for this spec run (numbering continues across runs), refreshes latest.html,
@@ -65,7 +73,7 @@ export function writeSpecReport(reportsDir: string, info: SpecRunInfo, records: 
   copyFileSync(file, path.join(dir, 'latest.html'));
   const all = readdirSync(dir)
     .filter((f) => REPORT.test(f))
-    .sort();
+    .sort(byNumber);
   for (const old of all.slice(0, Math.max(0, all.length - keep))) {
     const prefix = old.replace(/\.html$/, '');
     for (const f of readdirSync(dir)) if (f === old || f.startsWith(`${prefix}.`) || f.startsWith(`${prefix}-screenshot-`)) rmSync(path.join(dir, f));
@@ -89,7 +97,7 @@ export function writeIndex(reportsDir: string): void {
     .map((dir) => {
       const reports = readdirSync(dir)
         .filter((f) => REPORT.test(f))
-        .sort()
+        .sort(byNumber)
         .reverse();
       return { dir, name: path.relative(reportsDir, dir), reports, updated: statSync(path.join(dir, 'latest.html')).mtime };
     })

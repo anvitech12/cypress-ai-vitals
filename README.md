@@ -314,7 +314,7 @@ While it runs, every check and model call gets a row in the Command Log with its
 
 <img src="docs/images/ai-vitals-panel.png" alt="The AI Vitals panel after a spec" width="420">
 
-**Copy** puts these numbers on your clipboard as Markdown, ready for a pull request or a chat. **−** minimizes the panel, and **×** closes it to a small pill you click to reopen. It disappears when you re-run, and it appears at the end of `cypress run` videos.
+**Report** opens this spec's full HTML report in a new tab (in `cypress open`, with `experimentalInteractiveRunEvents: true` in `cypress.config` so reports are written there too; in `cypress run` the panel shows the report's file path instead). **Copy** puts these numbers on your clipboard as Markdown, ready for a pull request or a chat. **−** minimizes the panel, and **×** closes it to a small pill you click to reopen. It disappears when you re-run, and it appears at the end of `cypress run` videos.
 
 **2. A table in the terminal** (a few columns trimmed to fit here):
 
@@ -329,7 +329,7 @@ While it runs, every check and model call gets a row in the Command Log with its
   └───────────────────┴───────┴──────────┴──────┴──────┴───────────────┴─────────────┘
 ```
 
-**3. An HTML report**, saved next to Cypress's videos and screenshots. Open it with:
+**3. An HTML report**, saved next to Cypress's videos and screenshots. In `cypress open`, click **Report** on the panel. Otherwise open it with:
 
 ```bash
 open cypress/ai-vitals/reports/compare-models.cy.ts/latest.html
@@ -384,6 +384,7 @@ npx cypress-ai-vitals models [--ping]   # list models (keys masked); --ping call
 npx cypress-ai-vitals report [--all]    # merge the latest run (or every run) into run.html and summary.md
 npx cypress-ai-vitals clean             # delete saved results and reports
 npx cypress-ai-vitals warm              # download the local scoring models ahead of time
+npx cypress-ai-vitals --version         # print the installed version
 ```
 
 ## Plugin options

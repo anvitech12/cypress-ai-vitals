@@ -1,8 +1,14 @@
 import type { CheckResult, Vitals } from './types';
 
-export function formatMs(ms: number | undefined): string {
-  if (ms === undefined || Number.isNaN(ms)) return 'n/a';
+export function formatMs(ms: number | null | undefined): string {
+  // null: NaN becomes null when a result travels from Node to the browser as JSON.
+  if (ms === undefined || ms === null || Number.isNaN(ms)) return 'n/a';
   return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`;
+}
+
+export function formatPercent(rate: number | null | undefined): string {
+  if (rate === undefined || rate === null || Number.isNaN(rate)) return 'n/a';
+  return `${(rate * 100).toFixed(0)}%`;
 }
 
 export function formatTokens(n: number | undefined): string {

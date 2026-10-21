@@ -1,5 +1,6 @@
 import { formatMs, formatTokens, formatUsd } from '../shared/format';
 import type { Vitals } from '../shared/types';
+import { percentile as sharedPercentile } from '../plugin/stats';
 
 export interface PanelOptions {
   position?: 'bottom-right' | 'bottom-left' | 'top-right';
@@ -68,11 +69,18 @@ let finished = false;
  */
 const FRAME_ID = Math.random().toString(36).slice(2);
 let highlightTimer: ReturnType<typeof setTimeout> | undefined;
+/** Where this spec's full report is: a link in cypress open, a file path in cypress run. */
+let report: { url: string | null; path: string | null } = { url: null, path: null };
 
+/** Called when the spec ends, before the panel shows. */
+export function setReportLink(link: { url: string | null; path: string | null } | null): void {
+  report = link ?? { url: null, path: null };
+}
+
+/** The same percentile as the reports use, so the panel and the HTML report agree on p50 and p95. */
 function percentile(values: number[], p: number): number | undefined {
-  if (!values.length) return undefined;
-  const s = [...values].sort((a, b) => a - b);
-  return s[Math.min(s.length - 1, Math.max(0, Math.ceil((p / 100) * s.length) - 1))];
+  const value = sharedPercentile(values, p);
+  return Number.isNaN(value) ? undefined : value;
 }
 
 function topWindow(): Window | undefined {
@@ -173,6 +181,7 @@ const CSS = `
 #${PANEL_ID} td{padding:4px 6px 4px 0;text-align:left;white-space:nowrap}
 #${PANEL_ID} td.name{max-width:140px;overflow:hidden;text-overflow:ellipsis}
 #${PANEL_ID} .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+#${PANEL_ID} .report{margin-top:8px;color:#8d93ad;font-size:11.5px;overflow-wrap:anywhere}#${PANEL_ID} .report code{color:#c7cbe0;font:11px ui-monospace,SFMono-Regular,Menlo,monospace}
 #${PANEL_ID} .foot{margin-top:8px;color:#8d93ad;font-size:11.5px;min-height:15px}
 #${PANEL_ID}.collapsed .body{display:none}
 #${PANEL_ID}.closed{width:auto;border-radius:999px}
@@ -220,6 +229,9 @@ function render(): void {
         el.dataset.state = el.dataset.state === 'collapsed' ? 'open' : 'collapsed';
       } else if (action === 'close') {
         el.dataset.state = 'closed';
+      } else if (action === 'report') {
+        if (report.url) topWindow()?.open(report.url, '_blank', 'noopener');
+        return;
       } else if (action === 'copy') {
         const foot = el.querySelector('.foot');
         const ok = await copySummary(doc!);
@@ -253,6 +265,7 @@ function render(): void {
     <div class="head" ${state === 'closed' ? 'title="Show AI Vitals"' : ''}>
       <span class="title"><i class="pulse"></i>AI VITALS${state === 'closed' ? ` <small>${totals.calls} calls</small>` : spec ? ` <small title="${esc(spec)}">${esc(spec)}</small>` : ''}</span>
       <span class="actions">
+        ${report.url ? '<button type="button" data-action="report" title="Open the full report in a new tab">Report</button>' : ''}
         <button type="button" data-action="copy" title="Copy these numbers as Markdown">Copy</button>
         <button type="button" data-action="collapse" title="${state === 'collapsed' ? 'Expand' : 'Minimize'}">${state === 'collapsed' ? '+' : '−'}</button>
         <button type="button" data-action="close" title="Close (click the pill to reopen)">✕</button>
@@ -267,6 +280,7 @@ function render(): void {
       </div>
       <div class="last${isFresh ? ' fresh' : ''}">${lastLine}</div>
       ${rows ? `<table><tr><th>model</th><th>calls</th><th>acc</th><th>p95</th><th>tok</th><th>$</th></tr>${rows}</table>` : ''}
+      ${!report.url && report.path ? `<div class="report">Full report: <code>${esc(report.path)}</code></div>` : ''}
       <div class="foot"></div>
     </div>`;
   if (isFresh) {
@@ -294,6 +308,7 @@ export function removePanel(): void {
 /** Called before the spec's first test: clear the totals and any old panel. */
 export function resetPanel(): void {
   totals = fresh();
+  report = { url: null, path: null };
   finished = false;
   removePanel();
   render();

@@ -1,5 +1,5 @@
 import { openAiProvider } from './openai';
-import { authHeaders, requireBaseUrl, requireKey, sniffMime, usage, ProviderError, type GenerateResult, type Provider } from './types';
+import { authHeaders, requireBaseUrl, requireKey, sniffMime, usage, ProviderError, type GenerateResult, type Provider, retryAfterMs } from './types';
 
 interface CloudflareEnvelope {
   success?: boolean;
@@ -70,7 +70,7 @@ export const cloudflareProvider: Provider = {
         res = await send();
         if (!res.ok) text = await res.text();
       }
-      if (!res.ok) throw new ProviderError(`Cloudflare ${res.status} for ${model.model}: ${cloudflareMessage(text)}`, res.status, text);
+      if (!res.ok) throw new ProviderError(`Cloudflare ${res.status} for ${model.model}: ${cloudflareMessage(text)}`, res.status, text, retryAfterMs(res.headers));
     }
     const mime = res.headers.get('content-type') ?? '';
 

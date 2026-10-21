@@ -13,6 +13,11 @@ describe('aiImageAssert: images', () => {
     cy.get('[data-cy=photo]').aiImageAssert({ brand: { fixture: 'brand/fox.json' }, shouldFail: true });
   });
 
+  it('loads same-site images in the browser, so cy.intercept stubs apply', () => {
+    cy.intercept('GET', '/stubbed/fox.jpg', { fixture: 'images/on-brand-1.jpg' });
+    cy.wrap('/stubbed/fox.jpg').aiImageAssert({ depicts: 'a cartoon fox mascot', notDepicts: ['a dog'] });
+  });
+
   it('works on an image URL too', () => {
     cy.wrap('/cypress/fixtures/images/two-cats.jpg').aiImageAssert({ depicts: 'cats on a sofa', notDepicts: ['a dog'] });
     // shouldFail: passes because the picture shows cats, not the fox that was asked for.

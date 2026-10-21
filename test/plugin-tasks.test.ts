@@ -14,6 +14,7 @@ const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCA
 
 type Task = (arg: any) => Promise<any>;
 const tasks: Record<string, Task> = {};
+let returned: { expose?: Record<string, unknown> } = {};
 
 beforeAll(() => {
   const root = mkdtempSync(path.join(tmpdir(), 'ai-vitals-tasks-'));
@@ -22,12 +23,13 @@ beforeAll(() => {
   const on = (event: string, handlers: Record<string, Task>) => {
     if (event === 'task') Object.assign(tasks, handlers);
   };
-  aiVitalsPlugin(on as never, { projectRoot: root, fixturesFolder: path.join(root, 'cypress/fixtures') } as never, {
+  writeFileSync(path.join(root, 'cypress/fixtures/bad.jsonl'), '{"input": "q", "answer": 1}\n{"input": "q2", "answer"\n');
+  returned = aiVitalsPlugin(on as never, { projectRoot: root, fixturesFolder: path.join(root, 'cypress/fixtures') } as never, {
     envFile: 'test.env',
     terminalSummary: false,
     specReports: false,
     offline: true,
-  });
+  }) as never;
 });
 
 const meta = (extra: Record<string, unknown> = {}) => ({ command: 'aiAssert', spec: 'cypress/e2e/a.cy.ts', test: 'a test', ...extra });
@@ -64,6 +66,30 @@ describe('plugin tasks', () => {
   it('rejects a comparison with no models or an unsupported scorer', async () => {
     await expect(tasks['aiVitals:compare']({ spec: { models: [], cases: [{ input: 'q', answer: 1 }] }, meta: meta() })).rejects.toThrow('at least one model');
     await expect(tasks['aiVitals:compare']({ spec: { models: ['cf'], cases: [{ input: 'q', answer: 1 }], scorers: ['maxWer'] }, meta: meta() })).rejects.toThrow('maxWer');
+  });
+});
+
+describe('plugin wiring', () => {
+  it('leaves its version in the config, so the support file can tell when the plugin is missing', () => {
+    expect(returned.expose?.aiVitalsPlugin).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
+  it('gives the panel a report link in cypress open, and the file path either way', async () => {
+    expect(await tasks['aiVitals:reportLink']({ spec: 'cypress/e2e/a.cy.ts' })).toEqual({ url: null, path: null });
+    // A second plugin with spec reports on, as most projects run it.
+    const root = mkdtempSync(path.join(tmpdir(), 'ai-vitals-link-'));
+    const withReports: Record<string, Task> = {};
+    const on = (event: string, handlers: Record<string, Task>) => {
+      if (event === 'task') Object.assign(withReports, handlers);
+    };
+    aiVitalsPlugin(on as never, { projectRoot: root, fixturesFolder: path.join(root, 'cypress/fixtures'), experimentalInteractiveRunEvents: true } as never, { envFile: 'none.env', terminalSummary: false, offline: true });
+    const link = await withReports['aiVitals:reportLink']({ spec: 'cypress/e2e/a.cy.ts' });
+    expect(link.path).toBe(path.join('cypress', 'ai-vitals', 'reports', 'a.cy.ts', 'latest.html'));
+    expect(link.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/open\?spec=a\.cy\.ts&since=\d+$/);
+  });
+
+  it('names the file and line of a broken dataset row', async () => {
+    await expect(tasks['aiVitals:compare']({ spec: { models: ['cf'], dataset: 'bad.jsonl' }, meta: meta() })).rejects.toThrow(/bad\.jsonl, line 2/);
   });
 });
 

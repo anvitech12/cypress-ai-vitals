@@ -167,6 +167,12 @@ function resolve(name: string, def: ModelDefinition, env: Record<string, string>
   };
 }
 
+/** True for a value like "groq:openai/gpt-oss-20b" whose prefix is a known provider; false for a URL or a plain setting. */
+function looksLikeModel(value: string): boolean {
+  const m = /^([a-z0-9-]+):(?!\/\/)\S/i.exec(value.trim());
+  return !!m && (m[1] in PRESETS || customProviders().has(m[1]));
+}
+
 /** Builds the registry from AI_MODEL_<NAME>=preset:model entries plus definitions passed in code. */
 export function buildRegistry(env: Record<string, string>, fromCode: Record<string, ModelDefinition> = {}): Map<string, ModelConfig> {
   const registry = new Map<string, ModelConfig>();
@@ -175,11 +181,15 @@ export function buildRegistry(env: Record<string, string>, fromCode: Record<stri
   for (const [key, value] of Object.entries(env)) {
     if (!key.startsWith(MODEL_PREFIX)) continue;
     const rest = key.slice(MODEL_PREFIX.length);
-    if (SUFFIXES.some((s) => rest.endsWith(`_${s}`))) continue;
+    // AI_MODEL_X_VOICE=alloy is a setting of model X; AI_MODEL_OPENAI_VOICE=openai:tts-1 is a model of its own.
+    if (SUFFIXES.some((s) => rest.endsWith(`_${s}`)) && !looksLikeModel(value)) continue;
     const name = rest.toLowerCase().replace(/_/g, '-');
     if (allow && !allow.includes(name)) continue;
     const { preset, model } = parseModelSpec(value);
-    const get = (suffix: string) => env[`${MODEL_PREFIX}${rest}_${suffix}`];
+    const get = (suffix: string) => {
+      const setting = env[`${MODEL_PREFIX}${rest}_${suffix}`];
+      return setting !== undefined && looksLikeModel(setting) ? undefined : setting;
+    };
     const params: Record<string, unknown> = {};
     if (num(get('TEMPERATURE')) !== undefined) params.temperature = num(get('TEMPERATURE'));
     if (num(get('MAX_TOKENS')) !== undefined) params.maxTokens = num(get('MAX_TOKENS'));

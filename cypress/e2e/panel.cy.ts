@@ -17,6 +17,8 @@ after(() => {
   cy.then(() => {
     expect(panel(), 'panel shown after the spec').to.not.equal(null);
     expect(panel()!.textContent).to.contain('2 of 2 checks');
+    // In cypress run there is no report link, so the panel names the report file instead.
+    expect(panel()!.querySelector('.report')?.textContent).to.contain('cypress/ai-vitals/reports/panel.cy.ts/latest.html');
     button('collapse').click();
     expect(panel()!.dataset.state, 'minimize').to.equal('collapsed');
     button('collapse').click();

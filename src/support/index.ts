@@ -1,4 +1,4 @@
-import { formatCheck, formatMs, formatUsd, formatVitals } from '../shared/format';
+import { formatCheck, formatMs, formatPercent, formatUsd, formatVitals } from '../shared/format';
 import type {
   AudioSpec,
   CommonOptions,
@@ -12,7 +12,7 @@ import type {
   VitalsThresholds,
 } from '../shared/types';
 import { normalizeAnyUsage, serverTimingMs } from '../shared/usage';
-import { enablePanel, resetPanel, showPanel, track, type PanelOptions } from './panel';
+import { enablePanel, resetPanel, setReportLink, showPanel, track, type PanelOptions } from './panel';
 
 export type * from '../shared/types';
 
@@ -168,7 +168,9 @@ function scored(
 }
 
 async function blobToDataUrl(url: string, win: Window): Promise<string> {
-  const blob = await (await win.fetch(url)).blob();
+  const res = await win.fetch(url);
+  if (!res.ok) throw new Error(`Could not load ${url}: ${res.status}`);
+  const blob = await res.blob();
   return new Promise((resolve, reject) => {
     const reader = new (win as Window & typeof globalThis).FileReader();
     reader.onload = () => resolve(String(reader.result));
@@ -177,7 +179,6 @@ async function blobToDataUrl(url: string, win: Window): Promise<string> {
   });
 }
 
-/** Resolves a media element or URL to something Node can load (absolute URL or data: URL). */
 /** Retries until the element's text is non-empty and unchanged for stableMs, so streamed answers are scored when complete. */
 function waitForStableText(subject: JQuery, stableMs: number, timeout: number): Cypress.Chainable<JQuery> {
   let last = '';
@@ -194,21 +195,31 @@ function waitForStableText(subject: JQuery, stableMs: number, timeout: number): 
   }) as unknown as Cypress.Chainable<JQuery>;
 }
 
+/**
+ * Same-site media is fetched in the browser, so the app's cookies and any cy.intercept stubs apply, and reaches Node as a
+ * data: URL. Media on another site is loaded by Node, because the browser would need CORS to read it.
+ */
+async function loadable(url: string, win: Window): Promise<string> {
+  if (url.startsWith('data:')) return url;
+  if (url.startsWith('blob:') || new URL(url).origin === win.location.origin) return blobToDataUrl(url, win);
+  return url;
+}
+
+/** Resolves a media element or URL to something Node can load: a data: URL, or an absolute URL on another site. */
 function mediaSource(subject: unknown): Cypress.Chainable<string> {
   // The result of cy.aiGenerate(model, prompt, { task: 'image' | 'speech' }) carries its media as a data URL.
   if (subject && typeof subject === 'object' && !isJQuery(subject) && typeof (subject as { media?: unknown }).media === 'string') {
     return mediaSource((subject as { media: string }).media);
   }
   if (typeof subject === 'string') {
-    return cy.window({ log: false }).then((win) => new URL(subject, win.location.href).toString());
+    return cy.window({ log: false }).then((win) => cy.wrap(loadable(new URL(subject, win.location.href).toString(), win), { log: false, timeout: 30_000 }));
   }
   if (!isJQuery(subject)) throw new Error('Expected an <img>/<audio> element, a URL, or the result of cy.aiGenerate.');
   const el = subject[0] as HTMLImageElement & HTMLMediaElement;
   const src = el.currentSrc || el.getAttribute('src') || '';
   if (!src) throw new Error('The element has no src yet. Wait for it, e.g. cy.get("img[src]").');
   const win = el.ownerDocument.defaultView!;
-  if (src.startsWith('blob:')) return cy.wrap(blobToDataUrl(src, win), { log: false });
-  return cy.wrap(new URL(src, el.baseURI).toString(), { log: false });
+  return cy.wrap(loadable(new URL(src, el.baseURI).toString(), win), { log: false, timeout: 30_000 });
 }
 
 function extractVitals(interception: any, win: Window, model?: string): Vitals {
@@ -250,6 +261,15 @@ function extractVitals(interception: any, win: Window, model?: string): Vitals {
   }
   if (parsed?.vitals?.latencySource === 'cassette') vitals.latencySource = 'cassette';
   return vitals;
+}
+
+/** aiVitalsPlugin leaves its version in the config it returns; without it, every AI command's task would fail. */
+function pluginRegistered(): boolean {
+  try {
+    return Cypress.expose('aiVitalsPlugin') !== undefined;
+  } catch {
+    return true;
+  }
 }
 
 export function register(options: RegisterOptions = {}): void {
@@ -322,7 +342,7 @@ export function register(options: RegisterOptions = {}): void {
           Cypress.log({
             name: 'aiCompare',
             displayName: m.model === result.winner ? 'ai ★ winner' : 'ai model',
-            message: `${m.model}${m.modelId ? ` (${m.modelId}${m.settings ? `, ${m.settings}` : ''})` : ''} · ${Number.isNaN(m.accuracy) ? 'n/a' : `${(m.accuracy * 100).toFixed(0)}%`} · p95 ${formatMs(m.p95LatencyMs)} · ${m.inputTokens + m.outputTokens} tok · ${formatUsd(m.costPer100Usd)}/100${m.gatesPassed ? '' : ` · ✗ ${m.gateFailures.join('; ')}`}`,
+            message: `${m.model}${m.modelId ? ` (${m.modelId}${m.settings ? `, ${m.settings}` : ''})` : ''} · ${formatPercent(m.accuracy)} · p95 ${formatMs(m.p95LatencyMs)} · ${m.inputTokens + m.outputTokens} tok · ${formatUsd(m.costPer100Usd)}/100${m.gatesPassed ? '' : ` · ✗ ${m.gateFailures.join('; ')}`}`,
             consoleProps: () => ({ ...m }),
           });
         }
@@ -357,9 +377,21 @@ export function register(options: RegisterOptions = {}): void {
     return models;
   }));
 
-  before(() => resetPanel());
+  before(() => {
+    resetPanel();
+    if (!pluginRegistered()) {
+      Cypress.log({ name: 'ai-vitals', message: 'aiVitalsPlugin(on, config) is missing from setupNodeEvents in cypress.config, or its config is not returned. AI commands will fail with "the task event has not been registered".' });
+    }
+  });
   after(() => {
-    showPanel();
+    if (pluginRegistered()) {
+      cy.task<{ url: string | null; path: string | null }>('aiVitals:reportLink', { spec: Cypress.spec.relative }, { log: false }).then((link) => {
+        setReportLink(link);
+        showPanel();
+      });
+    } else {
+      showPanel();
+    }
     // In recorded runs, hold for a moment so the finished panel makes it into the video.
     if (options.panel !== false && !Cypress.config('isInteractive') && Cypress.config('video')) cy.wait(1500, { log: false });
   });
